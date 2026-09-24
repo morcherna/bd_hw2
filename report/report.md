@@ -1,4 +1,4 @@
-<img width="1246" height="1137" alt="Снимок экрана 2026-09-24 134845" src="https://github.com/user-attachments/assets/365040bb-4103-4300-9c62-74af0bf36cd9" />
+
 ## 1. Вводные данные
 
 В качестве источника использован набор **Road Safety Data – Collisions – 2025**, опубликованный UK Department for Transport.
