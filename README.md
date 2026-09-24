@@ -1,808 +1,340 @@
-###Road Safety DWH — ELT pipeline
+# Road Safety DWH — ELT pipeline
 
-
-
-##1. Вводная часть
-
+## 1. Вводная часть
 
 Источник: UK Department for Transport, Road Safety Data — Collisions 2025.
 
-
-
 Потребитель: аналитик по безопасности дорожного движения.
-
-
 
 Основной вопрос:
 
-
-
 Как меняются количество ДТП и число пострадавших в зависимости от дня недели и типа дороги?
-
-
 
 Дополнительный вопрос:
 
-
-
 Какие типы дорог имеют наибольшее количество серьёзных ДТП за контрольный период?
-
 
 ## 2. Исходные данные и контрольный срез
 
-
-
 Для воспроизводимости используется небольшой фиксированный срез исходного набора:
 
-
-
-```text
-
-data/source/collisions\_2025\_january.csv
-
-```
-
-
+    data/source/collisions_2025_january.csv
 
 Период:
 
-
-
-```text
-
-01.01.2025 — 31.01.2025
-
-```
-
-
+    01.01.2025 — 31.01.2025
 
 Количество записей:
 
-
-
-```text
-
-8 163
-
-```
-
-
+    8 163
 
 Одна строка исходного набора соответствует одному зарегистрированному ДТП.
 
-
-
 Полный исходный датасет использовался для получения контрольного среза, но не включается в проект из-за размера.
 
+## 3. Модель DWH
 
+### Grain
 
+Факт `fct_collisions` имеет grain:
 
-
-
-
-\## 3. Модель DWH
-
-
-
-\### Grain
-
-
-
-Факт `fct\_collisions` имеет grain:
-
-
-
-одна строка = одно зарегистрированное ДТП, идентифицируемое `collision\_index`.
-
-
+одна строка = одно зарегистрированное ДТП, идентифицируемое `collision_index`.
 
 Маркет имеет grain:
 
-
-
 одна строка = комбинация даты, дня недели и типа дороги.
 
+### Слои
 
+    raw.raw_collisions
+            |
+            v
+    dbt_staging.stg_collisions
+            |
+            +--------------------+
+            |                    |
+            v                    v
+    dbt_dwh.dim_date       dbt_dwh.dim_road
+            |                    |
+            +---------+----------+
+                      |
+                      v
+            dbt_dwh.fct_collisions
+                      |
+                      v
+            dbt_mart.mart_daily_road
+                      |
+                      v
+            candidate.mart_daily_road
+                      |
+                      v
+            published.mart_daily_road
 
-\### Слои
+### Таблицы
 
+| Таблица | Grain | Ключ |
+| --- | --- | --- |
+| `raw.raw_collisions` | одна исходная запись | `collision_index` |
+| `dbt_staging.stg_collisions` | одно ДТП | `collision_index` |
+| `dbt_dwh.dim_date` | одна календарная дата | `date_key` |
+| `dbt_dwh.dim_road` | одна комбинация атрибутов дороги | `road_key` |
+| `dbt_dwh.fct_collisions` | одно ДТП | `collision_index` |
+| `dbt_mart.mart_daily_road` | дата × день недели × тип дороги | составной аналитический grain |
+| `published.mart_daily_road` | опубликованная строка mart | тот же grain |
 
-
-```text
-
-raw.raw\_collisions
-
-&#x20;       |
-
-&#x20;       v
-
-dbt\_staging.stg\_collisions
-
-&#x20;       |
-
-&#x20;       +--------------------+
-
-&#x20;       |                    |
-
-&#x20;       v                    v
-
-dbt\_dwh.dim\_date       dbt\_dwh.dim\_road
-
-&#x20;       |                    |
-
-&#x20;       +---------+----------+
-
-&#x20;                 |
-
-&#x20;                 v
-
-&#x20;       dbt\_dwh.fct\_collisions
-
-&#x20;                 |
-
-&#x20;                 v
-
-&#x20;       dbt\_mart.mart\_daily\_road
-
-&#x20;                 |
-
-&#x20;                 v
-
-&#x20;       candidate.mart\_daily\_road
-
-&#x20;                 |
-
-&#x20;                 v
-
-&#x20;       published.mart\_daily\_road
-
-```
-
-
-
-\### Таблицы
-
-
-
-| Таблица                      | Grain                            | Ключ                          |
-
-| ---------------------------- | -------------------------------- | ----------------------------- |
-
-| `raw.raw\_collisions`         | одна исходная запись             | `collision\_index`             |
-
-| `dbt\_staging.stg\_collisions` | одно ДТП                         | `collision\_index`             |
-
-| `dbt\_dwh.dim\_date`           | одна календарная дата            | `date\_key`                    |
-
-| `dbt\_dwh.dim\_road`           | одна комбинация атрибутов дороги | `road\_key`                    |
-
-| `dbt\_dwh.fct\_collisions`     | одно ДТП                         | `collision\_index`             |
-
-| `dbt\_mart.mart\_daily\_road`   | дата × день недели × тип дороги  | составной аналитический grain |
-
-| `published.mart\_daily\_road`  | опубликованная строка mart       | тот же grain                  |
-
-
-
-\### Историчность
-
-
+### Историчность
 
 SCD2 не используется.
 
-
-
 Причина: рассматривается фиксированный событийный датасет за январь 2025 года. Изменение исторических версий справочных атрибутов не является предметом задачи. Требуется воспроизводимый аналитический snapshot, а не хранение истории изменений измерений.
 
-
-
-
-
-\## 4. ELT
-
-
+## 4. ELT
 
 Используются:
 
-
-
-\* PostgreSQL — хранение данных и выполнение SQL;
-
-\* dbt — модели, трансформации и проверки качества;
-
-\* Airflow — оркестрация;
-
-\* Python loader — загрузка CSV;
-
-\* Python publisher — публикация проверенного mart.
-
-
+- PostgreSQL — хранение данных и выполнение SQL;
+- dbt — модели, трансформации и проверки качества;
+- Airflow — оркестрация;
+- Python loader — загрузка CSV;
+- Python publisher — публикация проверенного mart.
 
 Последовательность DAG:
 
-
-
-```text
-
-load\_raw -> dbt\_run -> dbt\_test -> publish
-
-```
-
-
+    load_raw -> dbt_run -> dbt_test -> publish
 
 Дата запуска DAG не используется как дата события. Период обработки явно задан в staging-модели:
 
-
-
-```text
-
-2025-01-01 <= collision\_date < 2025-02-01
-
-```
-
-
+    2025-01-01 <= collision_date < 2025-02-01
 
 Для предотвращения параллельных запусков используется:
 
+    max_active_runs = 1
 
-
-```text
-
-max\_active\_runs = 1
-
-```
-
-
-
-
-
-\## 5. Data Quality
-
-
+## 5. Data Quality
 
 В проекте реализованы проверки:
 
+### Staging
 
+- `collision_index` NOT NULL;
+- `collision_index` UNIQUE;
+- `collision_date` NOT NULL;
+- `road_type_label` NOT NULL.
 
-\### Staging
+### DWH
 
+- surrogate keys NOT NULL;
+- surrogate keys UNIQUE;
+- `collision_index` NOT NULL и UNIQUE;
+- foreign key `fct_collisions.date_key -> dim_date.date_key`;
+- foreign key `fct_collisions.road_key -> dim_road.road_key`;
+- допустимые значения severity: `Fatal`, `Serious`, `Slight`.
 
-
-\* `collision\_index` NOT NULL;
-
-\* `collision\_index` UNIQUE;
-
-\* `collision\_date` NOT NULL;
-
-\* `road\_type\_label` NOT NULL.
-
-
-
-\### DWH
-
-
-
-\* surrogate keys NOT NULL;
-
-\* surrogate keys UNIQUE;
-
-\* `collision\_index` NOT NULL и UNIQUE;
-
-\* foreign key `fct\_collisions.date\_key -> dim\_date.date\_key`;
-
-\* foreign key `fct\_collisions.road\_key -> dim\_road.road\_key`;
-
-\* допустимые значения severity: `Fatal`, `Serious`, `Slight`.
-
-
-
-\### Business rule
-
-
+### Business rule
 
 Отдельный SQL-тест:
 
-
-
-```text
-
-dbt/tests/business\_rule\_casualties.sql
-
-```
-
-
+    dbt/tests/business_rule_casualties.sql
 
 проверяет, что количество пострадавших не является отрицательным.
 
-
-
 Чистая сборка:
 
+    PASS=21
+    WARN=0
+    ERROR=0
+    SKIP=0
+    TOTAL=21
 
-
-```text
-
-PASS=21
-
-WARN=0
-
-ERROR=0
-
-SKIP=0
-
-TOTAL=21
-
-```
-
-
-
-
-
-\## 6. Четыре DQ-сценария
-
-
+## 6. Четыре DQ-сценария
 
 Каждый сценарий запускался независимо от чистого входа.
 
-
-
-| Сценарий      | Изменение                   | Ожидаемый результат             | Фактический результат                            |
-
-| ------------- | --------------------------- | ------------------------------- | ------------------------------------------------ |
-
-| Duplicate key | добавлена копия записи      | `unique` должен упасть          | `unique\_stg\_collisions\_collision\_index` FAILED   |
-
-| NULL          | `road\_type\_label = NULL`    | `not\_null` должен упасть        | `not\_null\_stg\_collisions\_road\_type\_label` FAILED |
-
-| Invalid value | severity = `Unknown`        | `accepted\_values` должен упасть | accepted-values test FAILED                      |
-
-| Business rule | `number\_of\_casualties = -1` | business-rule должен упасть     | `business\_rule\_casualties` FAILED                |
-
-
+| Сценарий | Изменение | Ожидаемый результат | Фактический результат |
+| --- | --- | --- | --- |
+| Duplicate key | добавлена копия записи | `unique` должен упасть | `unique_stg_collisions_collision_index` FAILED |
+| NULL | `road_type_label = NULL` | `not_null` должен упасть | `not_null_stg_collisions_road_type_label` FAILED |
+| Invalid value | severity = `Unknown` | `accepted_values` должен упасть | accepted-values test FAILED |
+| Business rule | `number_of_casualties = -1` | business-rule должен упасть | `business_rule_casualties` FAILED |
 
 После каждого сценария данные восстанавливались из чистого CSV.
 
-
-
 SQL для сценариев находится в:
 
+    sql/dq_scenarios.sql
 
-
-```text
-
-sql/dq\_scenarios.sql
-
-```
-
-
-
-
-
-\## 7. Candidate / Published
-
-
+## 7. Candidate / Published
 
 Публикация отделена от построения candidate.
 
-
-
 Схема:
 
+    dbt_mart.mart_daily_road
+             |
+             v
+    candidate.mart_daily_road
+             |
+             v
+    published.mart_daily_road
 
-
-```text
-
-dbt\_mart.mart\_daily\_road
-
-&#x20;         |
-
-&#x20;         v
-
-candidate.mart\_daily\_road
-
-&#x20;         |
-
-&#x20;         v
-
-published.mart\_daily\_road
-
-```
-
-
-
-`publish` является последним task DAG и запускается только после успешного `dbt\_test`.
-
-
+`publish` является последним task DAG и запускается только после успешного `dbt_test`.
 
 Следовательно, если DQ-проверка завершается ошибкой:
 
-
-
-```text
-
-dbt\_test = failed
-
-publish = upstream\_failed
-
-```
-
-
+    dbt_test = failed
+    publish = upstream_failed
 
 и предыдущая опубликованная версия остаётся доступной потребителю.
 
-
-
-
-
-\## 8. Финальный результат
-
-
+## 8. Финальный результат
 
 Финальная опубликованная таблица:
 
-
-
-| Метрика            | Значение |
-
-| ------------------ | -------: |
-
-| rows               |      186 |
-
-| collisions         |    8 163 |
-
-| casualties         |   10 116 |
-
-| serious collisions |    1 867 |
-
-| vehicles           |   14 506 |
-
-
+| Метрика | Значение |
+| --- | ---: |
+| rows | 186 |
+| collisions | 8 163 |
+| casualties | 10 116 |
+| serious collisions | 1 867 |
+| vehicles | 14 506 |
 
 Размеры DWH:
 
+| Таблица | Rows |
+| --- | ---: |
+| `dim_date` | 31 |
+| `dim_road` | 171 |
+| `fct_collisions` | 8 163 |
+| `mart_daily_road` | 186 |
 
-
-| Таблица           |  Rows |
-
-| ----------------- | ----: |
-
-| `dim\_date`        |    31 |
-
-| `dim\_road`        |   171 |
-
-| `fct\_collisions`  | 8 163 |
-
-| `mart\_daily\_road` |   186 |
-
-
-
-
-
-\## 9. Повторяемость
-
-
+## 9. Повторяемость
 
 Один и тот же чистый вход был обработан дважды.
 
-
-
 Результаты:
 
-
-
-| Метрика            |  Run 1 |  Run 2 |
-
-| ------------------ | -----: | -----: |
-
-| Mart rows          |    186 |    186 |
-
-| Collisions         |  8 163 |  8 163 |
-
-| Casualties         | 10 116 | 10 116 |
-
-| Serious collisions |  1 867 |  1 867 |
-
-| Vehicles           | 14 506 | 14 506 |
-
-
+| Метрика | Run 1 | Run 2 |
+| --- | ---: | ---: |
+| Mart rows | 186 | 186 |
+| Collisions | 8 163 | 8 163 |
+| Casualties | 10 116 | 10 116 |
+| Serious collisions | 1 867 | 1 867 |
+| Vehicles | 14 506 | 14 506 |
 
 Сравнение строк через `EXCEPT` в обе стороны:
 
-
-
-```text
-
-rows\_only\_in\_run1 = 0
-
-rows\_only\_in\_run2 = 0
-
-```
-
-
+    rows_only_in_run1 = 0
+    rows_only_in_run2 = 0
 
 Следовательно, одинаковый вход даёт одинаковый результат.
 
-
-
-
-
-\## 10. Независимый контроль
-
-
+## 10. Независимый контроль
 
 Количество строк исходного control slice:
 
-
-
-```text
-
-8 163
-
-```
-
-
+    8 163
 
 Количество строк raw:
 
-
-
-```text
-
-8 163
-
-```
-
-
+    8 163
 
 Количество строк fact:
 
-
-
-```text
-
-8 163
-
-```
-
-
+    8 163
 
 Таким образом, количество зарегистрированных ДТП сохраняется между raw и fact.
 
-
-
 Важно: проверка уникальности ключа не доказывает полноту источника и отсутствие пропущенных записей.
 
+## 11. Ограничения
 
+1. Контрольный срез содержит только январь 2025 года.
+2. Проверка UNIQUE обнаруживает дубликаты, но не доказывает полноту источника.
+3. Airflow настроен локально через SequentialExecutor и SQLite metadata database; это учебная локальная конфигурация, а не production deployment.
+4. Историзация SCD2 не реализована, поскольку источник представляет фиксированный событийный snapshot.
+5. Candidate/published разделение защищает публикацию от проваливших DQ данных, но не заменяет контроль полноты исходного источника.
 
-
-
-\## 11. Ограничения
-
-
-
-1\. Контрольный срез содержит только январь 2025 года.
-
-2\. Проверка UNIQUE обнаруживает дубликаты, но не доказывает полноту источника.
-
-3\. Airflow настроен локально через SequentialExecutor и SQLite metadata database; это учебная локальная конфигурация, а не production deployment.
-
-4\. Историзация SCD2 не реализована, поскольку источник представляет фиксированный событийный snapshot.
-
-5\. Candidate/published разделение защищает публикацию от проваливших DQ данных, но не заменяет контроль полноты исходного источника.
-
-
-
-
-
-\## 12. Версии
-
-
+## 12. Версии
 
 Используемые версии:
 
+    PostgreSQL 16
+    dbt-postgres 1.9.0
+    Airflow 2.10.5
+    Python 3.12
 
-
-```text
-
-PostgreSQL 16
-
-dbt-postgres 1.9.0
-
-Airflow 2.10.5
-
-Python 3.12
-
-```
-
-
-
-
-
-\## 13. Запуск
-
-
+## 13. Запуск
 
 Из корня проекта:
 
-
-
-```cmd
-
-docker compose up -d postgres airflow
-
-```
-
-
+    docker compose up -d postgres airflow
 
 Загрузить контрольный срез:
 
-
-
-```cmd
-
-docker compose run --rm loader
-
-```
-
-
+    docker compose run --rm loader
 
 Собрать модели и выполнить проверки:
 
-
-
-```cmd
-
-docker compose run --rm dbt build --project-dir /app/dbt --profiles-dir /app/dbt
-
-```
-
-
+    docker compose run --rm dbt build --project-dir /app/dbt --profiles-dir /app/dbt
 
 Запустить полный ELT через Airflow:
 
-
-
-```cmd
-
-docker exec hw2-airflow airflow dags trigger road\_safety\_elt
-
-```
-
-
+    docker exec hw2-airflow airflow dags trigger road_safety_elt
 
 Проверить запуск:
 
-
-
-```cmd
-
-docker exec hw2-airflow airflow dags list-runs -d road\_safety\_elt
-
-```
-
-
+    docker exec hw2-airflow airflow dags list-runs -d road_safety_elt
 
 Ожидаемая последовательность:
 
+    load_raw -> dbt_run -> dbt_test -> publish
 
+## 14. Структура проекта
 
-```text
+    student-Mukovozova-hw2/
+    ├── airflow/
+    │   └── dags/
+    │       └── road_safety_elt.py
+    ├── data/
+    │   ├── source/
+    │   │   └── collisions_2025_january.csv
+    │   └── test_cases/
+    ├── dbt/
+    │   ├── dbt_project.yml
+    │   ├── profiles.yml
+    │   ├── models/
+    │   │   ├── staging/
+    │   │   ├── dwh/
+    │   │   └── marts/
+    │   └── tests/
+    │       └── business_rule_casualties.sql
+    ├── loader/
+    │   ├── load_raw.py
+    │   └── publish.py
+    ├── report/
+    ├── screenshots/
+    ├── sql/
+    ├── docker-compose.yml
+    └── README.md
 
-load\_raw -> dbt\_run -> dbt\_test -> publish
-
-```
-
-
-
-
-
-\## 14. Структура проекта
-
-
-
-```text
-
-student-Mukovozova-hw2/
-
-├── airflow/
-
-│   └── dags/
-
-│       └── road\_safety\_elt.py
-
-├── data/
-
-│   ├── source/
-
-│   │   └── collisions\_2025\_january.csv
-
-│   └── test\_cases/
-
-├── dbt/
-
-│   ├── dbt\_project.yml
-
-│   ├── profiles.yml
-
-│   ├── models/
-
-│   │   ├── staging/
-
-│   │   ├── dwh/
-
-│   │   └── marts/
-
-│   └── tests/
-
-│       └── business\_rule\_casualties.sql
-
-├── loader/
-
-│   ├── load\_raw.py
-
-│   └── publish.py
-
-├── report/
-
-├── screenshots/
-
-├── sql/
-
-├── docker-compose.yml
-
-└── README.md
-
-```
-
-
-
-
-
-\## 15. Итог
-
-
+## 15. Итог
 
 Проект реализует воспроизводимый локальный ELT-процесс:
 
-
-
-```text
-
-CSV
-
-&#x20;↓
-
-PostgreSQL raw
-
-&#x20;↓
-
-dbt staging
-
-&#x20;↓
-
-DWH dimensions + fact
-
-&#x20;↓
-
-mart
-
-&#x20;↓
-
-DQ checks
-
-&#x20;↓
-
-candidate
-
-&#x20;↓
-
-published
-
-```
-
-
+    CSV
+     ↓
+    PostgreSQL raw
+     ↓
+    dbt staging
+     ↓
+    DWH dimensions + fact
+     ↓
+    mart
+     ↓
+    DQ checks
+     ↓
+    candidate
+     ↓
+    published
 
 Для чистого входа все проверки проходят, одинаковый вход даёт одинаковый результат, а не прошедшие DQ данные не заменяют предыдущую публикацию.
-
-
-
