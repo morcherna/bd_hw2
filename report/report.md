@@ -1,3 +1,4 @@
+<img width="1246" height="1137" alt="Снимок экрана 2026-09-24 134845" src="https://github.com/user-attachments/assets/365040bb-4103-4300-9c62-74af0bf36cd9" />
 ## 1. Вводные данные
 
 В качестве источника использован набор **Road Safety Data – Collisions – 2025**, опубликованный UK Department for Transport.
@@ -196,7 +197,8 @@ TOTAL=21
 
 Количество строк факта совпадает с количеством записей контрольного среза.
 
-![Скриншот](screenshots/Снимок%20экрана%202026-09-24%20134845.png)
+<img width="1246" height="1137" alt="Снимок экрана 2026-09-24 134845" src="https://github.com/user-attachments/assets/6a972d61-3609-4b6c-a67a-41ebdcdfd668" />
+
 
 ## 7. Аналитический результат
 
@@ -222,7 +224,8 @@ vehicles = 14506
 
 Витрина позволяет анализировать показатели одновременно по дате, дню недели и типу дороги.
 
-![Скриншот](screenshots/Снимок%20экрана%202026-09-24%20135524.png)
+<img width="1254" height="150" alt="Снимок экрана 2026-09-24 135524" src="https://github.com/user-attachments/assets/7ebaa297-d99c-4acd-a17a-54644d3893b5" />
+
 
 ## 8. Контроль качества данных
 
@@ -437,7 +440,8 @@ vehicles = 14506
 
 После намеренного DQ-нарушения эти значения в `published.mart_daily_road` сохранялись без изменений.
 
-![Скриншот](screenshots/Снимок%20экрана%202026-09-24%20140018.png)
+<img width="1272" height="1215" alt="Снимок экрана 2026-09-24 140018" src="https://github.com/user-attachments/assets/26ab968f-02ed-4d7a-a4f3-3dff4cb61ae9" />
+
 
 ## 12. Успешный запуск Airflow
 
@@ -476,7 +480,8 @@ dbt_test | success
 publish  | success
 ```
 
-![Скриншот](screenshots/Снимок%20экрана%202026-09-24%20141106.png)
+<img width="1267" height="818" alt="Снимок экрана 2026-09-24 141106" src="https://github.com/user-attachments/assets/679afe41-4a93-4406-a8c0-6cf34d9faa18" />
+
 
 ## 13. Повторяемость
 
@@ -511,7 +516,8 @@ rows_only_in_run1 = 0
 rows_only_in_run2 = 0
 ```
 
-![Скриншот](screenshots/Снимок%20экрана%202026-09-24%20141426.png)
+<img width="713" height="201" alt="Снимок экрана 2026-09-24 141426" src="https://github.com/user-attachments/assets/135133d6-42c0-42c3-a0d1-b05b7239b277" />
+
 
 ## 14. Воспроизводимость
 
