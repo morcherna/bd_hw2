@@ -1,0 +1,89 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: hw2-postgres
+    environment:
+      POSTGRES_DB: road_safety
+      POSTGRES_USER: dwh
+      POSTGRES_PASSWORD: dwh_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  loader:
+    image: python:3.12-slim
+    container_name: hw2-loader
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: road_safety
+      DB_USER: dwh
+      DB_PASSWORD: dwh_password
+    depends_on:
+      - postgres
+    command: >
+      sh -c "pip install --no-cache-dir psycopg2-binary &&
+             python loader/load_raw.py"
+
+  publisher:
+    image: python:3.12-slim
+    container_name: hw2-publisher
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: road_safety
+      DB_USER: dwh
+      DB_PASSWORD: dwh_password
+    depends_on:
+      - postgres
+    command: >
+      sh -c "pip install --no-cache-dir psycopg2-binary &&
+             python loader/publish.py"
+
+  dbt:
+    image: ghcr.io/dbt-labs/dbt-postgres:1.9.latest
+    container_name: hw2-dbt
+    working_dir: /app/dbt
+    volumes:
+      - .:/app
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: road_safety
+      DB_USER: dwh
+      DB_PASSWORD: dwh_password
+    depends_on:
+      - postgres
+    command: --version
+
+  airflow:
+    image: apache/airflow:2.10.5-python3.12
+    container_name: hw2-airflow
+    working_dir: /app
+    volumes:
+      - .:/app
+      - ./airflow/dags:/opt/airflow/dags
+      - airflow_data:/opt/airflow
+    ports:
+      - "8080:8080"
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
+      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
+      AIRFLOW__WEBSERVER__SECRET_KEY: hw2-secret-key
+    depends_on:
+      - postgres
+    command: >
+      bash -c "pip install --no-cache-dir dbt-postgres==1.9.0 psycopg2-binary &&
+               airflow standalone"
+volumes:
+  postgres_data:
+  airflow_data:

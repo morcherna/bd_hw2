@@ -1,0 +1,22 @@
+name: road_safety_dwh
+version: "1.0.0"
+config-version: 2
+
+profile: road_safety
+
+model-paths: ["models"]
+test-paths: ["tests"]
+
+models:
+  road_safety_dwh:
+    staging:
+      +schema: staging
+      +materialized: view
+
+    dwh:
+      +schema: dwh
+      +materialized: table
+
+    marts:
+      +schema: mart
+      +materialized: table

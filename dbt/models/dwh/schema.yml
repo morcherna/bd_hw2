@@ -1,0 +1,54 @@
+version: 2
+
+models:
+  - name: dim_date
+    description: "Date dimension for the January 2025 control slice."
+    columns:
+      - name: date_key
+        description: "Surrogate date key in YYYYMMDD format."
+        tests:
+          - not_null
+          - unique
+
+  - name: dim_road
+    description: "Road attributes dimension."
+    columns:
+      - name: road_key
+        description: "Surrogate road key."
+        tests:
+          - not_null
+          - unique
+
+  - name: fct_collisions
+    description: "Fact table with one row per registered road collision."
+    columns:
+      - name: collision_index
+        description: "Natural collision identifier."
+        tests:
+          - not_null
+          - unique
+
+      - name: date_key
+        description: "Reference to dim_date."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+
+      - name: road_key
+        description: "Reference to dim_road."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_road')
+              field: road_key
+
+      - name: collision_severity_label
+        description: "Collision severity."
+        tests:
+          - accepted_values:
+              values:
+                - "Fatal"
+                - "Serious"
+                - "Slight"

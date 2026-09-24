@@ -1,0 +1,28 @@
+version: 2
+
+models:
+  - name: stg_collisions
+    description: "Staging layer for January 2025 road collisions."
+
+    columns:
+      - name: collision_index
+        description: "Unique identifier of a collision."
+        tests:
+          - not_null
+          - unique
+
+      - name: collision_date
+        description: "Date of the collision."
+        tests:
+          - not_null
+
+      - name: collision_severity_label
+        description: "Collision severity label."
+
+      - name: road_type_label
+        description: "Road type label."
+        tests:
+          - not_null
+
+      - name: number_of_casualties
+        description: "Number of casualties in the collision."
