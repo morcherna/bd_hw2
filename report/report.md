@@ -39,7 +39,8 @@
 Loaded rows: 8163
 ```
 
-![Скриншот](screenshots/Снимок%20экрана%202026-09-24%20133422.png)
+<img width="1093" height="369" alt="Снимок экрана 2026-09-24 133422" src="https://github.com/user-attachments/assets/e3810440-f035-45f9-accc-36d4ee83e770" />
+
 
 ## 3. Модель DWH
 
